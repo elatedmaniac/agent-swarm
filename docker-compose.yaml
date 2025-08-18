@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  orchestrator-model:
+    build:
+      context: ./cybersec-agent
+      dockerfile: Dockerfile
+    ports:
+      - "11434:11434"
+    environment:
+      - MODEL=llama3.1:8b
+    volumes:
+      - ollama-data:/var/lib/ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  medgemma-model:
+    image: vllm/vllm-openai:latest
+    container_name: medgemma-model
+    ports:
+      - "8000:8000"  # Expose OpenAI-compatible API
+    environment:
+      # Prefer secret file, fallback to env var if provided
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+    command: ["--model", "google/medgemma-4b-it", "--enable-auto-tool-choice", "--tool-call-parser", "pythonic"]
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+    ipc: host
+    # For newer Compose / Docker versions, device_requests is recommended; runtime kept for legacy compatibility if needed
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  image-model:
+    build:
+      context: ./image-agent
+      dockerfile: Dockerfile
+    ports:
+      - "11435:11434"
+    environment:
+      - MODEL=gemma3:12b
+    volumes:
+      - ollama-data:/var/lib/ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+secrets:
+  hf_token: 
+    external: true
+volumes:
+  ollama-data:
+  huggingface-cache:
