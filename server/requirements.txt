@@ -2,7 +2,7 @@ annotated-types==0.7.0
 anyio==4.9.0
 anthropic
 arxiv
-certifi==2025.4.26
+certifi==2026.10.18
 click==8.2.1
 google-search-results
 h11==0.16.0
